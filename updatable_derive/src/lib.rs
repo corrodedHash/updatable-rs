@@ -1,4 +1,6 @@
+#![warn(clippy::all, clippy::pedantic, clippy::nursery, clippy::cargo)]
 #![allow(clippy::needless_return)]
+#![allow(clippy::cargo_common_metadata)]
 
 use std::vec::Vec;
 
@@ -8,10 +10,28 @@ use parser::{ParenthesizedUpdateFn, UpdateFn, UpdateFnName};
 mod printer;
 use printer::{UpdatableApply, UpdatableEnumEntry};
 
-#[proc_macro_derive(Updatable, attributes(update_fn, update_fn_name, no_update))]
+#[proc_macro_derive(
+    Updatable,
+    attributes(
+        update_fn,
+        update_fn_name,
+        no_update,
+        update_state_name,
+        update_error_name
+    )
+)]
 pub fn derive_answer_fn(item: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let input = syn::parse_macro_input!(item as syn::DeriveInput);
     let name = input.ident;
+    let update_state_enum_name = input
+        .attrs
+        .iter()
+        .find(|x| x.path.is_ident("update_state_name"));
+    let update_state_error_name = input
+        .attrs
+        .iter()
+        .find(|x| x.path.is_ident("update_error_name"));
+
     let mut update_fns: Vec<UpdateFn> = vec![];
     let s = if let syn::Data::Struct(s) = input.data {
         s
@@ -27,7 +47,7 @@ pub fn derive_answer_fn(item: proc_macro::TokenStream) -> proc_macro::TokenStrea
             continue;
         };
         let mut update_fn_ident = member_name.clone();
-        for att in f.attrs.iter() {
+        for att in &f.attrs {
             if att.path.is_ident("update_fn") {
                 let hehe = att.tokens.clone().into();
                 update_fns.push(syn::parse_macro_input!(hehe as ParenthesizedUpdateFn).update_fn);
@@ -59,8 +79,18 @@ pub fn derive_answer_fn(item: proc_macro::TokenStream) -> proc_macro::TokenStrea
             });
         }
     }
-    let update_state_enum_name = quote::format_ident!("{}StateUpdate", name);
-    let update_state_error_name = quote::format_ident!("{}StateUpdateError", name);
+    let update_state_enum_name = if let Some(att) = update_state_enum_name {
+        let hehe = att.tokens.clone().into();
+        syn::parse_macro_input!(hehe as parser::ParName).name
+    } else {
+        quote::format_ident!("{}StateUpdate", name)
+    };
+    let update_state_error_name = if let Some(att) = update_state_error_name {
+        let hehe = att.tokens.clone().into();
+        syn::parse_macro_input!(hehe as parser::ParName).name
+    } else {
+        quote::format_ident!("{}StateUpdateError", name)
+    };
     let bla = update_fns.iter().map(UpdatableEnumEntry);
     let match_cases = update_fns.iter().map(UpdatableApply);
     let update_states = quote::quote! {

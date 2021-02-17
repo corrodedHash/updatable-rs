@@ -2,7 +2,7 @@ use proc_macro2::TokenStream;
 
 use crate::parser::{UpdateFields, UpdateFn};
 
-pub(crate) struct UpdatableEnumEntry<'a>(pub &'a UpdateFn);
+pub struct UpdatableEnumEntry<'a>(pub &'a UpdateFn);
 
 impl<'a> quote::ToTokens for UpdatableEnumEntry<'a> {
     fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
@@ -27,7 +27,7 @@ impl<'a> quote::ToTokens for UpdatableEnumEntry<'a> {
     }
 }
 
-pub(crate) struct UpdatableApply<'a>(pub &'a UpdateFn);
+pub struct UpdatableApply<'a>(pub &'a UpdateFn);
 
 impl<'a> quote::ToTokens for UpdatableApply<'a> {
     fn to_tokens(&self, tokens: &mut TokenStream) {
