@@ -1,61 +1,12 @@
-use proc_macro2::TokenStream;
+#![allow(clippy::needless_return)]
+
 use std::vec::Vec;
 
 mod parser;
-use parser::{ParenthesizedUpdateFn, UpdateFields, UpdateFn, UpdateFnName};
+use parser::{ParenthesizedUpdateFn, UpdateFn, UpdateFnName};
 
-struct UpdatableEnumEntry<'a> {
-    hehe: &'a UpdateFn,
-}
-
-impl<'a> quote::ToTokens for UpdatableEnumEntry<'a> {
-    fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
-        let variant_name = &self.hehe.name;
-        let result_stream = match self.hehe.fields {
-            UpdateFields::Parenthesized(ref field) => {
-                let field_type = &field.ty;
-                quote::quote! {
-                    #variant_name ( #field_type )
-                }
-            }
-            UpdateFields::Braced(ref fields) => {
-                let field_iter = fields.iter();
-
-                quote::quote! {
-                  #variant_name { #( #field_iter),* }
-                }
-            }
-        };
-
-        result_stream.to_tokens(tokens);
-    }
-}
-
-struct UpdatableApply<'a> {
-    hehe: &'a UpdateFn,
-}
-
-impl<'a> quote::ToTokens for UpdatableApply<'a> {
-    fn to_tokens(&self, tokens: &mut TokenStream) {
-        let variant_name = &self.hehe.name;
-        let func = &self.hehe.func;
-        let result_stream = match self.hehe.fields {
-            UpdateFields::Parenthesized(ref field) => {
-                let member_name = &field.ident;
-                quote::quote! {
-                    #variant_name ( #member_name ) => #func
-                }
-            }
-            UpdateFields::Braced(ref fields) => {
-                let member_names = fields.iter().map(|x| &x.ident);
-                quote::quote! {
-                    #variant_name { #( #member_names ),* } => #func
-                }
-            }
-        };
-        result_stream.to_tokens(tokens);
-    }
-}
+mod printer;
+use printer::{UpdatableApply, UpdatableEnumEntry};
 
 #[proc_macro_derive(Updatable, attributes(update_fn, update_fn_name, no_update))]
 pub fn derive_answer_fn(item: proc_macro::TokenStream) -> proc_macro::TokenStream {
@@ -110,8 +61,8 @@ pub fn derive_answer_fn(item: proc_macro::TokenStream) -> proc_macro::TokenStrea
     }
     let update_state_enum_name = quote::format_ident!("{}StateUpdate", name);
     let update_state_error_name = quote::format_ident!("{}StateUpdateError", name);
-    let bla = update_fns.iter().map(|x| UpdatableEnumEntry { hehe: x });
-    let match_cases = update_fns.iter().map(|x| UpdatableApply { hehe: x });
+    let bla = update_fns.iter().map(UpdatableEnumEntry);
+    let match_cases = update_fns.iter().map(UpdatableApply);
     let update_states = quote::quote! {
         #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
         pub enum #update_state_enum_name {

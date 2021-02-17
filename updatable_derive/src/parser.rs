@@ -26,26 +26,28 @@ impl syn::parse::Parse for UpdateFn {
     fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
         let content;
         let mut braced = false;
+        let name = input.parse()?;
+        let first_punc = input.parse()?;
+        let delimiter_token = if input.lookahead1().peek(syn::token::Brace) {
+            braced = true;
+            UpdateDelimiter::Brace(syn::braced!(content in input))
+        } else {
+            UpdateDelimiter::Par(syn::parenthesized!(content in input))
+        };
+        let fields = if braced {
+            UpdateFields::Braced(content.parse_terminated(syn::Field::parse_named)?)
+        } else {
+            UpdateFields::Parenthesized(syn::Field::parse_named(&content)?)
+        };
+        let second_punc = input.parse()?;
+        let func = input.parse()?;
         Ok(UpdateFn {
-            name: input.parse()?,
-            first_punc: input.parse()?,
-            delimiter_token: {
-                if input.lookahead1().peek(syn::token::Brace) {
-                    braced = true;
-                    UpdateDelimiter::Brace(syn::braced!(content in input))
-                } else {
-                    UpdateDelimiter::Par(syn::parenthesized!(content in input))
-                }
-            },
-            fields: {
-                if braced {
-                    UpdateFields::Braced(content.parse_terminated(syn::Field::parse_named)?)
-                } else {
-                    UpdateFields::Parenthesized(syn::Field::parse_named(&content)?)
-                }
-            },
-            second_punc: input.parse()?,
-            func: input.parse()?,
+            name,
+            first_punc,
+            delimiter_token,
+            fields,
+            second_punc,
+            func,
         })
     }
 }
@@ -58,10 +60,10 @@ pub struct ParenthesizedUpdateFn {
 impl syn::parse::Parse for ParenthesizedUpdateFn {
     fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
         let content;
-        Ok(ParenthesizedUpdateFn {
-            par: syn::parenthesized!(content in input),
-            update_fn: content.parse()?,
-        })
+
+        let par = syn::parenthesized!(content in input);
+        let update_fn = content.parse()?;
+        Ok(ParenthesizedUpdateFn { par, update_fn })
     }
 }
 
@@ -74,9 +76,9 @@ pub struct UpdateFnName {
 impl syn::parse::Parse for UpdateFnName {
     fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
         let content;
-        Ok(UpdateFnName {
-            par: syn::parenthesized!(content in input),
-            name: content.parse()?,
-        })
+
+        let par = syn::parenthesized!(content in input);
+        let name = content.parse()?;
+        Ok(UpdateFnName { par, name })
     }
 }
